@@ -1,0 +1,122 @@
+---
+title: "Prelimanary Data Exloratory Data Analysis"
+subtitle: "Final Project"
+author: ""
+date: "11/09/24"
+output: html_notebook
+---
+
+**Guiding Question**
+Research Question: "Is there a correlation between advanced performance metrics and award shares among players in professional basketball?"
+
+
+```{r}
+
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+
+```
+
+```{r}
+
+head(Advanced)
+head(Player_Award_Shares)
+
+```
+
+### Merging the data
+```{r}
+merged_data <- merge(Advanced, Player_Award_Shares, by = c("player_id", "season"))
+head(merged_data)
+```
+
+### Data Wrangling (Joins for multiple data tables)
+```{r}
+Advanced$player_id <- as.character(Advanced$player_id)
+Advanced$season <- as.character(Advanced$season)
+
+Player_Award_Shares$player_id <- as.character(Player_Award_Shares$player_id)
+Player_Award_Shares$season <- as.character(Player_Award_Shares$season)
+
+merged_data_join <- full_join(Advanced, Player_Award_Shares, by = c("player_id", "season"), relationship = "many-to-many")
+glimpse(merged_data_join)
+
+```
+
+### Data Wrangling (Spread and Gather to stack/unstack variables)
+```{r}
+reshaped_data <- merged_data %>% 
+  pivot_longer(cols = c(ws, obpm, dbpm, usg_percent), names_to = "metric", values_to = "value")
+glimpse(reshaped_data)
+
+```
+
+### Data Wrangling (# User-defined function to categorize players by win shares)
+```{r}
+categorize_ws <- function(ws) {
+  if (ws > 10) {
+    return("High")
+  } else if (ws > 5) {
+    return("Medium")
+  } else {
+    return("Low")
+  }
+}
+merged_data <- merged_data %>% 
+  mutate(ws_category = sapply(ws, categorize_ws))
+
+head(merged_data)
+
+```
+
+### Data Wrangling (Data Verbs)
+```{r}
+season_summary <- merged_data %>%
+  group_by(season) %>%
+  summarise(total_share = sum(share, na.rm = TRUE))
+
+
+head(season_summary)
+```
+
+### Data Wrangling (Regular Expresison)
+```{r}
+mvp_data <- merged_data %>% 
+  filter(grepl("MVP(\\s\\w+)?(\\s\\d{4})?", award, ignore.case = TRUE))
+
+head(mvp_data)
+```
+
+### Data Visulazation #1
+```{r}
+
+ggplot(merged_data, aes(x = ws, y = share)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "red") +
+  labs(title = "Win Shares vs Award Share with Smoother",
+       x = "Win Shares",
+       y = "Award Share")
+```
+### Data Visualization #2
+```{r}
+ggplot(merged_data, aes(x = obpm, y = share, color = ws_category)) +
+  geom_point() +
+  labs(title = "Offensive BPM vs Award Share by Win Share Category",
+       x = "Offensive Box Plus/Minus",
+       y = "Award Share",
+       color = "Win Share Category")
+```
+### Data Visulazation #3
+```{r}
+ggplot(merged_data, aes(x = dbpm, fill = ws_category)) +
+  geom_density(alpha = 0.4) +
+  geom_point(aes(y = share / 10), color = "black", position = position_jitter(width = 0.5)) +
+  labs(title = "Density of Defensive BPM by Win Share Category with Points",
+       x = "Defensive Box Plus/Minus",
+       y = "Density / Points")
+```
+
+
+
+
